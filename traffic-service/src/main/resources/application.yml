@@ -1,0 +1,14 @@
+spring:
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8080/realms/traffic-ai
+server:
+  port: 8081
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    oauth:
+      client-id: traffic-service-swagger-ui
+      use-pkce-with-authorization-code-grant: true
