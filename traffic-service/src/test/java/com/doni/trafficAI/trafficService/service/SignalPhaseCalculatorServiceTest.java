@@ -67,6 +67,50 @@ class SignalPhaseCalculatorServiceTest {
         assertEquals(37, response.recommendedGreenSeconds());
     }
 
+    @Test
+    @DisplayName("ДЕФЕКТ: сервис использует исторические записи traffic вместо только актуальных")
+    void shouldUseOnlyLatestTrafficPerLaneButCurrentlyUsesAllHistoricalRecords() {
+        // given
+        Long intersectionId = 5L;
+        CalculateSignalPhaseCommand command = new CalculateSignalPhaseCommand(intersectionId);
+
+        UUID northLaneId = UUID.randomUUID();
+        UUID southLaneId = UUID.randomUUID();
+        UUID eastLaneId = UUID.randomUUID();
+        UUID westLaneId = UUID.randomUUID();
+
+        Instant oldTime = Instant.parse("2026-04-20T10:00:00Z");
+        Instant newTime = Instant.parse("2026-04-20T10:10:00Z");
+
+        List<Traffic> traffics = List.of(
+                // старые записи: вертикаль была сильно загружена
+                traffic(northLaneId, Direction.NORTH, 20, "0.80", "10.00", oldTime),
+                traffic(southLaneId, Direction.SOUTH, 18, "0.75", "11.00", oldTime),
+
+                // новые записи: сейчас сильнее загружена горизонталь
+                traffic(eastLaneId, Direction.EAST, 14, "0.70", "12.00", newTime),
+                traffic(westLaneId, Direction.WEST, 13, "0.68", "13.00", newTime)
+        );
+
+        when(trafficRepository.findAll(any(Specification.class))).thenReturn(traffics);
+
+        // when
+        CalculateSignalPhaseCommandResponse response = signalPhaseCalculatorService.calculateGreen(command);
+
+        // then
+        // БИЗНЕС-ОЖИДАНИЕ:
+        // сервис должен смотреть только на актуальные данные
+        // => latest traffic показывает, что сейчас должна победить фаза EAST_WEST
+        //
+        // Но текущая реализация использует ВСЕ записи и суммирует:
+        // NS = 20 + 18 = 38
+        // EW = 14 + 13 = 27
+        // => фактически выберет NORTH_SOUTH
+        //
+        // Поэтому этот assert сейчас должен падать и демонстрировать дефект.
+        assertEquals(SignalPhase.EAST_WEST, response.phase());
+    }
+
     private Traffic traffic(Direction direction, int queueLength, String density, String avgSpeed) {
         Lane lane = new Lane();
         lane.setId(UUID.randomUUID());
@@ -79,6 +123,29 @@ class SignalPhaseCalculatorServiceTest {
         traffic.setQueueLength(queueLength);
         traffic.setDensity(new BigDecimal(density));
         traffic.setAvgSpeed(new BigDecimal(avgSpeed));
+
+        return traffic;
+    }
+
+    private Traffic traffic(
+            UUID laneId,
+            Direction direction,
+            int queueLength,
+            String density,
+            String avgSpeed,
+            Instant timestamp
+    ) {
+        Lane lane = new Lane();
+        lane.setId(laneId);
+        lane.setDirection(direction);
+
+        Traffic traffic = new Traffic();
+        traffic.setId(UUID.randomUUID());
+        traffic.setLane(lane);
+        traffic.setQueueLength(queueLength);
+        traffic.setDensity(new BigDecimal(density));
+        traffic.setAvgSpeed(new BigDecimal(avgSpeed));
+        traffic.setTimestamp(timestamp);
 
         return traffic;
     }
