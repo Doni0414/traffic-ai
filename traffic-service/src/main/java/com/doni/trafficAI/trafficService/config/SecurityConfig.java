@@ -23,9 +23,9 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity httpSecurity) {
         return httpSecurity.oauth2ResourceServer(oauth2 -> oauth2.jwt(Customizer.withDefaults()))
-                .authorizeHttpRequests(request -> request.requestMatchers("/traffic-service/traffic/public", "/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**").permitAll()
-                        .requestMatchers("/traffic-service/traffic/authenticated").authenticated()
-                        .requestMatchers("/traffic-service/traffic").hasRole("MANAGER")
+                .authorizeHttpRequests(request -> request
+                        .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**").permitAll()
+                        .requestMatchers("/traffic-service/**").hasRole("MANAGER")
                         .anyRequest().authenticated())
                 .build();
     }
